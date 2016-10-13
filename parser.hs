@@ -30,7 +30,7 @@ parseNET file = do
     let outpts   = map (getidx mp) outpt
     let types    = A.array (0,cnt-1) $ map ((get mp) . fst) vrs
     return $ Prog {p_eqs = eqs, p_inputs = inpts, p_outputs = outpts, p_types = types}
- where totype t = if t == 1 then TByte else TNap t
+ where totype t = if t == 0 then TByte else TNap t
        getidx mp s = let Just (x,_) = M.lookup s mp in x
        get mp s    = let Just p = M.lookup s mp in p
 
@@ -105,7 +105,7 @@ variatype = (try $ do
     wp $ char ':'
     n <- wp number
     return (v,n))
- <|> (varia >>= (\v -> return (v,1)))
+ <|> (varia >>= (\v -> return (v,0)))
 commaSeparated p = p `sepBy` (try $ mayWhite >> char ',' >> mayWhite)
 
 (>->) x y = x >> whiteSpaces >> y
