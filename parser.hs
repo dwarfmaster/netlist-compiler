@@ -49,11 +49,10 @@ one_eq mp tps = do v <- wp varia
                    i <- getidx mp "result" v
                    wp $ char '='
                    e <- expre mp tps (tps ! i)
-                   return $ GEq i e
+                   return $ Eq i e
 
 varia = word
 value = number
-arg   = (varia >>= \v -> return $ Avar v) <|> (value >>= \v -> return $ Aconst v)
 binop =     strpat "OR"   Or
         <|> strpat "XOR"  Xor
         <|> strpat "AND"  And
