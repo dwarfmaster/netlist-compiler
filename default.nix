@@ -2,7 +2,7 @@
 let
   inherit (nixpkgs) pkgs;
   ghc = pkgs.haskell.packages.${compiler}.ghcWithPackages (ps: with ps; [
-          parsec
+          parsec fgl
         ]);
 in pkgs.stdenv.mkDerivation {
   name = "netlist-compiler";

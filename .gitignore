@@ -1,4 +1,6 @@
 *.hi
 *.o
 main
+a.out
+*.s
 

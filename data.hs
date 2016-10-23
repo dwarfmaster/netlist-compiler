@@ -24,7 +24,7 @@ data Exp =
   | Eselect Int64 Arg -- select the ith element
   deriving (Show)
 
-data Equation = Eq Var Exp
+type Equation = (Var, Exp)
 
 data Program = Prog {
     p_eqs     :: [Equation]

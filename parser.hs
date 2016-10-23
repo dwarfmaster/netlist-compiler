@@ -49,7 +49,7 @@ one_eq mp tps = do v <- wp varia
                    i <- getidx mp "result" v
                    wp $ char '='
                    e <- expre mp tps (tps ! i)
-                   return $ Eq i e
+                   return $ (i, e)
 
 varia = word
 value = number
@@ -91,12 +91,14 @@ expre mp tps t =
  <|> (try $ do wp $ string "ROM"
                n1 <- wp number
                n2 <- wp number
+               if n2 `mod` 8 /= 0 then fail "RAM word size must be a multiple of 8" else return ()
                if size t /= n2 then fail ("Reading " ++ show n2 ++ " bits from ROM into a " ++ show t) else return ()
                a  <- wp $ arg_constraint mp tps $ TNap n1
                return $ Erom n1 n2 a)
  <|> (try $ do wp $ string "RAM"
                n1 <- wp number
                n2 <- wp number
+               if n2 `mod` 8 /= 0 then fail "RAM word size must be a multiple of 8" else return ()
                if size t /= n2 then fail ("Reading " ++ show n2 ++ " bits from RAM into a " ++ show t) else return ()
                a1 <- wp $ arg_constraint mp tps $ TNap n1
                a2 <- wp $ arg_constraint mp tps TBit
