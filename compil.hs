@@ -9,12 +9,20 @@ import Data.Array.IArray ((!))
 import qualified Data.ByteString as BS
 import Data.Int
 import Data.Maybe
+import Data.IORef
 import Control.Exception.Base
 import Control.Monad
 
 type Gr = GPT.Gr Equation ()
 type Write = (Int64,Arg,Arg,Arg) -- word_size, we, wa, ra
 fac = 8
+
+type Labeler = IO String
+nlabel_init :: IO Labeler
+nlabel_init = newIORef 0 >>= (\r -> return $ do
+    v <- readIORef r
+    writeIORef r (v+1)
+    return $ "_label_" ++ show v)
 
 infixr 9 <:
 (<:) :: Arg -> [Int] -> [Int]
@@ -42,6 +50,7 @@ has_cycle g = foldl (||) False $ map ((/=1) . length) $ G.scc g
 
 compile :: Program -> IO ()
 compile p = do
+    label <- nlabel_init
     if has_cycle g then fail "Cyclic dependencies" else return ()
     putStrLn ".text"
     putStrLn "print_int:"
@@ -60,6 +69,7 @@ compile p = do
     putStrLn ".globl main"
     putStrLn "main:"
     putStrLn "movq %rsp, %rbp"
+    putStrLn "subq $32, %rsp"
     -- TODO test the number of arguments
     -- TODO store size of rom and ram
     putStrLn "movq %rsi, %rbx"
@@ -72,9 +82,8 @@ compile p = do
 
     putStrLn "movq %rsp, %rax"
     putStrLn "movq %rsp, %rbx"
-    putStrLn $ "subq $" ++ show (4*fac) ++ ", %rax"
-    putStrLn $ "subq $" ++ show (fac * (4 + n)) ++ ", %rbx"
-    putStrLn $ "subq $" ++ show (fac * (4+2*n)) ++ ", %rsp"
+    putStrLn $ "subq $" ++ show (8  * n) ++ ", %rbx"
+    putStrLn $ "subq $" ++ show (16 * n) ++ ", %rsp"
 
     -- Init values at 0
     mapM_ (\v -> putStrLn $ "movq $0, -" ++ show (fac * v) ++ "(%rax)") [0..(n-1)]
@@ -85,13 +94,13 @@ compile p = do
     putStrLn "pushq %rax"
     mapM_ inputV $ p_inputs p
     putStrLn "popq %rax"
-    wrs <- mapM (writeE p n) o
+    wrs <- mapM (writeE p n label) o
     putStrLn "pushq %rax"
     mapM_ outputV $ p_outputs p
     putStrLn "popq %rax"
 
     let nwrs = map fromJust $ filter isJust wrs
-    foldM_ (\c w -> applyWrite w c >> return (c+1)) 0 nwrs
+    mapM_ (applyWrite label) nwrs
 
     putStrLn "movq %rax, %rcx"
     putStrLn "movq %rbx, %rax"
@@ -99,24 +108,24 @@ compile p = do
     putStrLn "jmp mainloop"
 
     putStrLn ".data"
-    putStrLn "message:.string \"%d\\n\""
-    putStrLn "inmsg:.string \"%u\""
-    putStrLn "input:.quad"
+    putStrLn "message:.string \"%llx\\n\""
+    putStrLn "inmsg:.string \"%llx\""
  where g = mkGraph p
        o = L.reverse $ G.topsort' g
        n = (+) 1 $ snd $ A.bounds $ p_types p
 
-applyWrite :: Write -> Int -> IO ()
-applyWrite (ws,we,wa,dt) c = do
+applyWrite :: Labeler -> Write -> IO ()
+applyWrite lb (ws,we,wa,dt) = do
+    l <- lb
     readV we "rcx"
-    putStrLn "test we, we"
-    putStrLn $ "je _ramw_" ++ show c
+    putStrLn "test %rcx, %rcx"
+    putStrLn $ "je " ++ l
     readV wa "rcx"
-    putStrLn "salq 2, %rcx"
+    putStrLn "salq $2, %rcx"
     readV dt "rdx"
     putStrLn $ "movq %rdx, 0(%rbp, %rcx, "
                ++ show (ws `div` 4) ++ ")"
-    putStrLn $ "_ram_" ++ show c ++ ":"
+    putStrLn $ l ++ ":"
 
 inputV :: Var -> IO ()
 inputV v = do
@@ -132,10 +141,16 @@ outputV v = do
     putStrLn "call print_int"
     putStrLn "popq %rbx"
 
-writeE :: Program -> Int -> Equation -> IO (Maybe Write)
-writeE p n (v,e) = do
-    w <- writeExp p e
-    putStrLn $ "andq $" ++ show x ++ ", %rdi"
+writeE :: Program -> Int -> Labeler -> Equation -> IO (Maybe Write)
+writeE p n lb (v,e) = do
+    w <- writeExp p e lb
+    if s < 32 then putStrLn $ "andq $" ++ show x ++ ", %rdi"
+    else if s < 64 then do
+        putStrLn $ "movq $1, %rcx"
+        putStrLn $ "salq $" ++ show s ++ ", %rcx"
+        putStrLn $ "decq %rcx"
+        putStrLn $ "andq %rcx, %rdi"
+    else return ()
     putStrLn $ "movq %rdi, -" ++ show (fac*v) ++ "(%rbx)"
     return w
  where s = size (p_types p) (Avar v)
@@ -148,14 +163,107 @@ readOV :: Arg -> String -> IO ()
 readOV (Aconst c) s = putStrLn $ "movq $" ++ show c ++ ", %" ++ s
 readOV (Avar v)   s = putStrLn $ "movq -" ++ show (fac*v) ++ "(%rax), %" ++ s
 
-writeExp :: Program -> Exp -> IO (Maybe Write)
-writeExp _ (Earg a) = readV a "rdi" >> return Nothing
-writeExp _ (Ereg v) = do
+-- Uses rdx after d and r, writes in rdi
+readROM :: Labeler -> String -> Int64 -> String -> IO ()
+readROM lb r 1  d = do
+    putStrLn $ "movq %" ++ d ++ ", %rdi"
+    putStrLn $ "movq %" ++ r ++ ", %rdx"
+    putStrLn $ "shrq $3, %" ++ r
+    putStrLn $ "andq $7, %rdx"
+    putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
+    putStrLn $ "subq $7, %rdx"
+    putStrLn $ "negq %rdx"
+    l1 <- lb
+    l2 <- lb
+    putStrLn $ "jmp " ++ l2
+    putStrLn $ l1 ++ ":"
+    putStrLn $ "shrq $1, %rdi"
+    putStrLn $ "decq %rdx"
+    putStrLn $ l2 ++ ":"
+    putStrLn $ "andq %rdx,%rdx"
+    putStrLn $ "jne " ++ l1
+readROM lb r 2  d = do
+    putStrLn $ "movq %" ++ d ++ ", %rdi"
+    putStrLn $ "movq %" ++ r ++ ", %rdx"
+    putStrLn $ "shrq $2, %" ++ r
+    putStrLn $ "andq $3, %rdx"
+    putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
+    putStrLn $ "subq $3, %rdx"
+    putStrLn $ "negq %rdx"
+    l1 <- lb
+    l2 <- lb
+    putStrLn $ "jmp " ++ l2
+    putStrLn $ l1 ++ ":"
+    putStrLn $ "shrq $2, %rdi"
+    putStrLn $ "decq %rdx"
+    putStrLn $ l2 ++ ":"
+    putStrLn $ "andq %rdx,%rdx"
+    putStrLn $ "jne " ++ l1
+readROM lb r 4  d = do
+    putStrLn $ "movq %" ++ d ++ ", %rdi"
+    putStrLn $ "movq %" ++ r ++ ", %rdx"
+    putStrLn $ "shrq $1, %" ++ r
+    putStrLn $ "andq $1, %rdx"
+    putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
+    putStrLn $ "subq $1, %rdx"
+    putStrLn $ "negq %rdx"
+    l1 <- lb
+    l2 <- lb
+    putStrLn $ "jmp " ++ l2
+    putStrLn $ l1 ++ ":"
+    putStrLn $ "shrq $4, %rdi"
+    putStrLn $ "decq %rdx"
+    putStrLn $ l2 ++ ":"
+    putStrLn $ "andq %rdx,%rdx"
+    putStrLn $ "jne " ++ l1
+readROM _ r 8  d =
+    putStrLn $ "movq (%" ++ d ++ ",%"
+                         ++ r ++ ",1), %rdi"
+readROM _ r 16 d = do
+    putStrLn $ "salq $1, %" ++ r
+    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
+readROM _ r 32 d = do
+    putStrLn $ "salq $2, %" ++ r
+    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 2(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 3(%" ++ d ++ ",%rcx,1), %dil"
+readROM _ r 64 d = do
+    putStrLn $ "salq $3, %" ++ r
+    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 2(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 3(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 4(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 5(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 6(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "salq $8, %rdi"
+    putStrLn $ "movb 7(%" ++ d ++ ",%rcx,1), %dil"
+
+-- Uses rcx, rdx
+-- Returns in rdi
+writeExp :: Program -> Exp -> Labeler -> IO (Maybe Write)
+writeExp _ (Earg a) _ = readV a "rdi" >> return Nothing
+
+writeExp _ (Ereg v) _ = do
     putStrLn $ "movq -" ++ show (fac*v) ++ "(%rax), %rdi"
     return Nothing
-writeExp _ (Enot a) = readV a "rdi" >> putStrLn "notq %rdi"
-                      >> return Nothing
-writeExp _ (Ebinop b a1 a2) = do
+
+writeExp _ (Enot a) _ = readV a "rdi" >> putStrLn "notq %rdi"
+                        >> return Nothing
+
+writeExp _ (Ebinop b a1 a2) _ = do
     readV a1 "rcx"
     readV a2 "rdi"
     case b of
@@ -164,46 +272,46 @@ writeExp _ (Ebinop b a1 a2) = do
         And  -> putStrLn "andq %rcx, %rdi"
         Nand -> putStrLn "andq %rcx, %rdi" >> putStrLn "not %rdi"
     return Nothing
-writeExp _ (Emux a1 a2 a3) = do
+
+writeExp _ (Emux a1 a2 a3) _ = do
     readV a3 "rcx"
     readV a1 "rdx"
     readV a2 "rdi"
     putStrLn "test %rcx, %rcx"
     putStrLn "cmovqe %rdx, %rdi"
     return Nothing
+
 -- TODO check overflow
-writeExp p (Erom _ w r) = do
+writeExp p (Erom _ w r) lb = do
     readV r "rcx"
     putStrLn $ "movq -" ++ show (fac * 2) ++ "(%rbp), %rdx"
-    putStrLn "salq 2, %rcx"
-    putStrLn $ "movq 0(%rdx, %rcx, "
-            ++ show (w `div` 4) ++ "), %rdi"
+    readROM lb "rcx" w "rdx"
     return Nothing
  where n = (+) 1 $ snd $ A.bounds $ p_types p
-writeExp _ (Eram _ w ra we wa dt) = do
+
+writeExp _ (Eram _ w ra we wa dt) lb = do
     readV ra "rcx"
     putStrLn $ "movq (%rbp), %rdx"
-    putStrLn "salq 2, %rcx"
-    putStrLn $ "movq 0(%rdx, %rcx, "
-            ++ show (w `div` 4) ++ "), %rdi"
+    readROM lb "rcx" w "rdx"
     return $ Just (w, we, wa, dt)
-writeExp p (Econcat a1 a2) = do
-    readV a1 "rcx"
-    readV a2 "rdi"
+
+writeExp p (Econcat a1 a2) _ = do
+    readV a2 "rcx"
+    readV a1 "rdi"
     let s = size (p_types p) a2
-    putStrLn $ "salq " ++ show s ++ ", %rcx"
+    putStrLn $ "salq $" ++ show s ++ ", %rcx"
     putStrLn "or %rcx, %rdi"
     return Nothing
-writeExp _ (Eslice i1 i2 a) = do
+
+writeExp _ (Eslice i1 i2 a) _ = do
     readV a "rdi"
     let x = 2 ^ (i2 - i1 + 1) - 1
-    putStrLn $ "sarq " ++ show i1 ++ ", %rdi"
-    -- putStrLn $ "andq $" ++ show x ++ ", %rdi"
+    putStrLn $ "shrq $" ++ show i1 ++ ", %rdi"
     return Nothing
-writeExp _ (Eselect i a) = do
+
+writeExp _ (Eselect i a) _ = do
     readV a "rdi"
-    putStrLn $ "sarq " ++ show i ++ ", %rdi"
-    -- putStrLn "andq $1, %rdi"
+    putStrLn $ "shrq $" ++ show i ++ ", %rdi"
     return Nothing
 
 size :: A.Array Int Type -> Arg -> Int64
