@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void* load_rom(const char* path) {
     FILE* fp = fopen(path, "rb");
@@ -21,6 +22,7 @@ void* load_rom(const char* path) {
 
 void* load_ram(const char* num) {
     long size = atoi(num);
-    return malloc(size);
+    void* m = malloc(size);
+    return memset(m, 0, size);
 }
 

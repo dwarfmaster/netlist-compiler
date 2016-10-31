@@ -1,6 +1,6 @@
 INPUT x
 OUTPUT y
-VAR x:32, y:8
+VAR x:32, y:64
 IN
-y = ROM 32 8 x
+y = ROM 32 64 x
 

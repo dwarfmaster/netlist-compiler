@@ -123,7 +123,8 @@ applyWrite lb (ws,we,wa,dt) = do
     readV wa "rcx"
     putStrLn "salq $2, %rcx"
     readV dt "rdx"
-    putStrLn $ "movq %rdx, 0(%rbp, %rcx, "
+    putStrLn $ "movq (%rbp), %rdi"
+    putStrLn $ "movq %rdx, (%rdi, %rcx, "
                ++ show (ws `div` 4) ++ ")"
     putStrLn $ l ++ ":"
 
@@ -163,9 +164,9 @@ readOV :: Arg -> String -> IO ()
 readOV (Aconst c) s = putStrLn $ "movq $" ++ show c ++ ", %" ++ s
 readOV (Avar v)   s = putStrLn $ "movq -" ++ show (fac*v) ++ "(%rax), %" ++ s
 
--- Uses rdx after d and r, writes in rdi
-readROM :: Labeler -> String -> Int64 -> String -> IO ()
-readROM lb r 1  d = do
+   -- Uses rdx after d and r, writes in rdi
+readMemory :: Labeler -> String -> Int64 -> String -> IO ()
+readMemory lb r 1  d = do
     putStrLn $ "movq %" ++ d ++ ", %rdi"
     putStrLn $ "movq %" ++ r ++ ", %rdx"
     putStrLn $ "shrq $3, %" ++ r
@@ -182,7 +183,7 @@ readROM lb r 1  d = do
     putStrLn $ l2 ++ ":"
     putStrLn $ "andq %rdx,%rdx"
     putStrLn $ "jne " ++ l1
-readROM lb r 2  d = do
+readMemory lb r 2  d = do
     putStrLn $ "movq %" ++ d ++ ", %rdi"
     putStrLn $ "movq %" ++ r ++ ", %rdx"
     putStrLn $ "shrq $2, %" ++ r
@@ -199,7 +200,7 @@ readROM lb r 2  d = do
     putStrLn $ l2 ++ ":"
     putStrLn $ "andq %rdx,%rdx"
     putStrLn $ "jne " ++ l1
-readROM lb r 4  d = do
+readMemory lb r 4  d = do
     putStrLn $ "movq %" ++ d ++ ", %rdi"
     putStrLn $ "movq %" ++ r ++ ", %rdx"
     putStrLn $ "shrq $1, %" ++ r
@@ -216,40 +217,18 @@ readROM lb r 4  d = do
     putStrLn $ l2 ++ ":"
     putStrLn $ "andq %rdx,%rdx"
     putStrLn $ "jne " ++ l1
-readROM _ r 8  d =
+readMemory _ r 8  d =
     putStrLn $ "movq (%" ++ d ++ ",%"
                          ++ r ++ ",1), %rdi"
-readROM _ r 16 d = do
+readMemory _ r 16 d = do
     putStrLn $ "salq $1, %" ++ r
-    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
-readROM _ r 32 d = do
+    putStrLn $ "movw (%" ++ d ++ ",%rcx,1), %di"
+readMemory _ r 32 d = do
     putStrLn $ "salq $2, %" ++ r
-    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 2(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 3(%" ++ d ++ ",%rcx,1), %dil"
-readROM _ r 64 d = do
+    putStrLn $ "movl (%" ++ d ++ ",%rcx,1), %edi"
+readMemory _ r 64 d = do
     putStrLn $ "salq $3, %" ++ r
-    putStrLn $ "movb (%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 1(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 2(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 3(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 4(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 5(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 6(%" ++ d ++ ",%rcx,1), %dil"
-    putStrLn $ "salq $8, %rdi"
-    putStrLn $ "movb 7(%" ++ d ++ ",%rcx,1), %dil"
+    putStrLn $ "movq (%" ++ d ++ ",%rcx,1), %rdi"
 
 -- Uses rcx, rdx
 -- Returns in rdi
@@ -285,14 +264,14 @@ writeExp _ (Emux a1 a2 a3) _ = do
 writeExp p (Erom _ w r) lb = do
     readV r "rcx"
     putStrLn $ "movq -" ++ show (fac * 2) ++ "(%rbp), %rdx"
-    readROM lb "rcx" w "rdx"
+    readMemory lb "rcx" w "rdx"
     return Nothing
  where n = (+) 1 $ snd $ A.bounds $ p_types p
 
 writeExp _ (Eram _ w ra we wa dt) lb = do
     readV ra "rcx"
     putStrLn $ "movq (%rbp), %rdx"
-    readROM lb "rcx" w "rdx"
+    readMemory lb "rcx" w "rdx"
     return $ Just (w, we, wa, dt)
 
 writeExp p (Econcat a1 a2) _ = do

@@ -91,14 +91,14 @@ expre mp tps t =
  <|> (try $ do wp $ string "ROM"
                n1 <- wp number
                n2 <- wp number
-               if not $ isValidSize n2 then fail "RAM word size must be less than 56 or 64" else return ()
+               if not $ isValidSize n2 then fail "ROM word size must be a power of 2" else return ()
                if size t /= n2 then fail ("Reading " ++ show n2 ++ " bits from ROM into a " ++ show t) else return ()
                a  <- wp $ arg_constraint mp tps $ TNap n1
                return $ Erom n1 n2 a)
  <|> (try $ do wp $ string "RAM"
                n1 <- wp number
                n2 <- wp number
-               if not $ isValidSize n2 then fail "RAM word size must be less than 56 or 64" else return ()
+               if not $ isValidSize n2 then fail "RAM word size must be a power of two" else return ()
                if size t /= n2 then fail ("Reading " ++ show n2 ++ " bits from RAM into a " ++ show t) else return ()
                a1 <- wp $ arg_constraint mp tps $ TNap n1
                a2 <- wp $ arg_constraint mp tps TBit
@@ -137,13 +137,14 @@ expre mp tps t =
        tt (Aconst v) = TNap $ log2 v
        stt (Avar v)  = show $ tps ! v
        stt a         = show a
-       isValidSize n = n <= 56 || n == 64
+       isValidSize n =  n == 1  || n == 2  || n == 4  || n == 8
+                     || n == 16 || n == 32 || n == 64
 
 variatype = (try $ do
     v <- wp varia
     wp $ char ':'
     n <- wp number
-    if n >= 64 then fail "Naps can only be of length 63 or less" else return ()
+    if n > 64 then fail "Naps can only be of length 63 or less" else return ()
     return $ if n == 1 then (v, TBit) else (v,TNap n))
  <|> (varia >>= (\v -> return (v,TBit)))
 commaSeparated p = p `sepBy` (try $ mayWhite >> char ',' >> mayWhite)
