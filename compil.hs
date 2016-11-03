@@ -172,8 +172,6 @@ readMemory lb r 1  d = do
     putStrLn $ "shrq $3, %" ++ r
     putStrLn $ "andq $7, %rdx"
     putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
-    putStrLn $ "subq $7, %rdx"
-    putStrLn $ "negq %rdx"
     l1 <- lb
     l2 <- lb
     putStrLn $ "jmp " ++ l2
@@ -189,8 +187,6 @@ readMemory lb r 2  d = do
     putStrLn $ "shrq $2, %" ++ r
     putStrLn $ "andq $3, %rdx"
     putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
-    putStrLn $ "subq $3, %rdx"
-    putStrLn $ "negq %rdx"
     l1 <- lb
     l2 <- lb
     putStrLn $ "jmp " ++ l2
@@ -206,8 +202,6 @@ readMemory lb r 4  d = do
     putStrLn $ "shrq $1, %" ++ r
     putStrLn $ "andq $1, %rdx"
     putStrLn $ "movb (%rdi,%" ++ r ++ ",1), %dil"
-    putStrLn $ "subq $1, %rdx"
-    putStrLn $ "negq %rdx"
     l1 <- lb
     l2 <- lb
     putStrLn $ "jmp " ++ l2
