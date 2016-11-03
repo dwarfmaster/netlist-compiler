@@ -96,7 +96,7 @@ compile p = do
     putStrLn "popq %rax"
     wrs <- mapM (writeE p n label) o
     putStrLn "pushq %rax"
-    mapM_ outputV $ p_outputs p
+    mapM_ (outputV p) $ p_outputs p
     putStrLn "popq %rax"
 
     let nwrs = map fromJust $ filter isJust wrs
@@ -135,16 +135,9 @@ inputV v = do
     putStrLn "call read_int"
     putStrLn "popq %rbx"
 
-outputV :: Var -> IO ()
-outputV v = do
+outputV :: Program -> Var -> IO ()
+outputV p v = do
     putStrLn $ "movq -" ++ show (fac*v) ++ "(%rbx), %rdi"
-    putStrLn "pushq %rbx"
-    putStrLn "call print_int"
-    putStrLn "popq %rbx"
-
-writeE :: Program -> Int -> Labeler -> Equation -> IO (Maybe Write)
-writeE p n lb (v,e) = do
-    w <- writeExp p e lb
     if s < 32 then putStrLn $ "andq $" ++ show x ++ ", %rdi"
     else if s < 64 then do
         putStrLn $ "movq $1, %rcx"
@@ -152,10 +145,17 @@ writeE p n lb (v,e) = do
         putStrLn $ "decq %rcx"
         putStrLn $ "andq %rcx, %rdi"
     else return ()
-    putStrLn $ "movq %rdi, -" ++ show (fac*v) ++ "(%rbx)"
-    return w
+    putStrLn "pushq %rbx"
+    putStrLn "call print_int"
+    putStrLn "popq %rbx"
  where s = size (p_types p) (Avar v)
        x = 2 ^ s - 1
+
+writeE :: Program -> Int -> Labeler -> Equation -> IO (Maybe Write)
+writeE p n lb (v,e) = do
+    w <- writeExp p e lb
+    putStrLn $ "movq %rdi, -" ++ show (fac*v) ++ "(%rbx)"
+    return w
 
 readV :: Arg -> String -> IO ()
 readV (Aconst c) s = putStrLn $ "movq $" ++ show c ++ ", %" ++ s
@@ -250,6 +250,7 @@ writeExp _ (Emux a1 a2 a3) _ = do
     readV a3 "rcx"
     readV a1 "rdx"
     readV a2 "rdi"
+    putStrLn "andq $1, %rcx"
     putStrLn "test %rcx, %rcx"
     putStrLn "cmovqe %rdx, %rdi"
     return Nothing
@@ -271,8 +272,9 @@ writeExp _ (Eram _ w ra we wa dt) lb = do
 writeExp p (Econcat a1 a2) _ = do
     readV a2 "rcx"
     readV a1 "rdi"
-    let s = size (p_types p) a2
+    let s = size (p_types p) a1
     putStrLn $ "salq $" ++ show s ++ ", %rcx"
+    putStrLn $ "andq $" ++ show s ++ ", %rdi"
     putStrLn "or %rcx, %rdi"
     return Nothing
 
