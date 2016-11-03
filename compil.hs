@@ -274,7 +274,7 @@ writeExp p (Econcat a1 a2) _ = do
     readV a1 "rdi"
     let s = size (p_types p) a1
     putStrLn $ "salq $" ++ show s ++ ", %rcx"
-    putStrLn $ "andq $" ++ show s ++ ", %rdi"
+    putStrLn $ "andq $" ++ show (2^s-1) ++ ", %rdi"
     putStrLn "or %rcx, %rdi"
     return Nothing
 
