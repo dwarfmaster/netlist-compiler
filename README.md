@@ -7,10 +7,12 @@ Type `make` generates the compiler `compile-net` from Haskell. Then
 you can use the script `compile.sh` to generate a program from a netlist.
 It expects a path to the netlist as first argument. It also requires for
 `helper.c` and `compile-net` to be in the same directory. The generated
-program will have the same basename (minus eventually the .net) as the netlist,
-with the out extension.
+program will have the same basename (minus eventually the `.net`) as the
+netlist, with the `out` extension.
 
--- TODO : how to use the generated program
+The generated program expects two arguments (they are NOT optional). The first
+one is a path to a file, which will be loaded as the ROM. The second one is the
+size of the RAM in bytes.
 
 ## NetList syntax
 The netlist file must begin with the `INPUT` token, followed by the names
@@ -25,7 +27,9 @@ default. Variables have a maximum size of 64.
 Then comes the IN token, followed by a list of statements, one per line. A
 statement describes how to compute a variable. A statement has the form
 `var = command arguments`. There must one and only one statement for every
-variable.
+variable. Because every arguments must be computed before var is computed 
+(unless otherwise stated in the following list), there cannot be circular
+dependencies.
 
 Here is the list of accepted commands :
  - If there simply is the name of a variable or a constant after the `=`,
@@ -61,7 +65,8 @@ Here is the list of accepted commands :
    `e` is a bit. The first three arguments work exactly as with `ROM`. The
    three last ones allow to write to the RAM. `e` enables the writing if set
    to 1. `wa` is the write address and `d` is the data written. Please note
-   that the write action only takes effect at the end of the pass.
+   that the write action only takes effect at the end of the pass. Because of
+   that, the three last arguments are not dependencies of the command.
 
 For examples of valid netlists, see the folder `test`.
 
