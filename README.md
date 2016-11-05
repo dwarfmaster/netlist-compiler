@@ -14,6 +14,11 @@ The generated program expects two arguments (they are NOT optional). The first
 one is a path to a file, which will be loaded as the ROM. The second one is the
 size of the RAM in bytes.
 
+When they are inputs variables, their values must be entered in hexadecimal,
+separated by returns, in the order the variables where in the netlist. The
+output variables will have their values written, one per line, in hexadecimal,
+in the order they were in the netlist.
+
 ## NetList syntax
 The netlist file must begin with the `INPUT` token, followed by the names
 of the input variables, separated by commas. Then it expects the `OUTPUT`
@@ -59,14 +64,15 @@ Here is the list of accepted commands :
    size of the result. To know how the rom is loaded, refer to the *How to use*
    section. Access is in little endian order : `ROM 2 4 0` will give the 4
    least significat bits of `ROM 2 8 0`. Furthermore, `ws` must always be a
-   power of two.
+   power of two. The address is in *word size* unit.
  - `RAM as ws ra e wa d` : `ws` is the word size, so the size of the result and
    of `d`. `as` is the address size, thus the size of `ra` and `wa`. Finally
    `e` is a bit. The first three arguments work exactly as with `ROM`. The
    three last ones allow to write to the RAM. `e` enables the writing if set
    to 1. `wa` is the write address and `d` is the data written. Please note
    that the write action only takes effect at the end of the pass. Because of
-   that, the three last arguments are not dependencies of the command.
+   that, the three last arguments are not dependencies of the command. The
+   addresses are in *word size* unit.
 
 For examples of valid netlists, see the folder `test`.
 
@@ -80,4 +86,19 @@ To compile `compile-net`, the following utilities are needed :
 To use it, you will need :
  - [gcc](https://gcc.gnu.org/)
  - [bash](https://www.gnu.org/software/bash/) or any shell-compliant program
+
+## Portability
+While the compiler can be used on any system with an haskell installation, the
+generated program is Linux specific : indeed, it relies on the Linux calling
+convention. This means it may work on other UNIXes like \*BSD or Mac OS X but
+not on Windows.
+
+## Problems during the implementation
+The main difficulty was getting the calling convention right (sending the right
+arguments, saving the registers, placing `%rsp`, getting the return ...), which
+is why only one calling convention is supported.
+
+The other hurdle to overcome was getting clear on big-endian/little-endian when
+reading or writing the memory (both ROM and RAM), and proposing a consistent
+implementation.
 
