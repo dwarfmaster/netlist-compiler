@@ -3,4 +3,5 @@
 main
 a.out
 *.s
+compile-net
 
