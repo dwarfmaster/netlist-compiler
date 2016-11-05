@@ -251,7 +251,6 @@ writeExp _ (Emux a1 a2 a3) _ = do
     readV a1 "rdx"
     readV a2 "rdi"
     putStrLn "andq $1, %rcx"
-    putStrLn "test %rcx, %rcx"
     putStrLn "cmovqe %rdx, %rdi"
     return Nothing
 
@@ -280,7 +279,6 @@ writeExp p (Econcat a1 a2) _ = do
 
 writeExp _ (Eslice i1 i2 a) _ = do
     readV a "rdi"
-    let x = 2 ^ (i2 - i1 + 1) - 1
     putStrLn $ "shrq $" ++ show i1 ++ ", %rdi"
     return Nothing
 
