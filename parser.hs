@@ -22,6 +22,19 @@ parseNET file = parseFromFile parser file >>= either report return
            hPutStrLn stderr $ "Error: " ++ show err
            exitFailure
 
+check_unique :: [Int] -> [Int] -> Parser ()
+check_unique inpts eqs = if not $ null pin
+                         then fail $ "Input variable " ++ show hpi ++ " is computed again in equation"
+                         else if not $ null peqs
+                         then fail $ "Variable " ++ show hpe ++ " is computed twice"
+                         else return ()
+ where deqs = [(x,y) | x <- eqs, y <- eqs]
+       din  = [(x,y) | x <- eqs, y <- inpts]
+       peqs = map fst $ filter (\(a,b) -> a == b) deqs
+       pin  = map fst $ filter (\(a,b) -> a == b) din
+       hpe  = head peqs
+       hpi  = head pin
+
 parser :: Parser Program
 parser = do
     mayWhite
@@ -34,6 +47,7 @@ parser = do
     outpts <- mapM (getidx mp "output") out
     eqs <- wp $ equas mp types
     mayWhite >> eof
+    check_unique inpts $ map fst eqs
     return $ Prog { p_eqs = eqs, p_inputs = inpts, p_outputs = outpts, p_types = types }
  where get mp s = let Just p = M.lookup s mp in p
 
