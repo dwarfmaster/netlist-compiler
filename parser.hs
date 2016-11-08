@@ -28,9 +28,9 @@ check_unique inpts eqs = if not $ null pin
                          else if not $ null peqs
                          then fail $ "Variable " ++ show hpe ++ " is computed twice"
                          else return ()
- where deqs = [(x,y) | x <- eqs, y <- eqs]
+ where deqs = [ (x,length [ y | y <- eqs, y == x ]) | x <- eqs ]
        din  = [(x,y) | x <- eqs, y <- inpts]
-       peqs = map fst $ filter (\(a,b) -> a == b) deqs
+       peqs = map fst $ filter (\(_,n) -> n > 1)  deqs
        pin  = map fst $ filter (\(a,b) -> a == b) din
        hpe  = head peqs
        hpi  = head pin
