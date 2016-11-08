@@ -26,3 +26,7 @@ void* load_ram(const char* num) {
     return memset(m, 0, size);
 }
 
+unsigned long read_turns(const char* num) {
+    return atoi(num);
+}
+

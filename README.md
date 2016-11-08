@@ -12,7 +12,8 @@ netlist, with the `out` extension.
 
 The generated program expects two arguments (they are NOT optional). The first
 one is a path to a file, which will be loaded as the ROM. The second one is the
-size of the RAM in bytes.
+size of the RAM in bytes. An optional third argument can specify a number of
+passes in the simulation.
 
 When they are inputs variables, their values must be entered in hexadecimal,
 separated by returns, in the order the variables where in the netlist. The

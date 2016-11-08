@@ -72,10 +72,20 @@ compile p = do
     putStrLn "subq $32, %rsp"
     -- TODO test the number of arguments
     -- TODO store size of rom and ram
+    putStrLn "movq $0, %r14"
     putStrLn "movq %rsi, %rbx"
+    putStrLn $ "subq $4, %rdi"
+    lb <- label
+    putStrLn $ "jne " ++ lb -- if argc == 4
+    putStrLn "movq 24(%rbx), %rdi" -- argv[3]
+    putStrLn "call read_turns"
+    putStrLn "movq $1, %r14"
+    putStrLn "movq %rax, %r15"
+    putStrLn $ lb ++ ":"
+
     putStrLn "movq 8(%rbx), %rdi"  -- argv[1]
     putStrLn "call load_rom"
-    putStrLn $ "movq %rax, -" ++ show (fac*2) ++ "(%rbp)"
+    putStrLn $ "movq %rax, -16(%rbp)"
     putStrLn "movq 16(%rbx), %rdi" -- argv[2]
     putStrLn "call load_ram"
     putStrLn $ "movq %rax, (%rbp)"
@@ -105,7 +115,12 @@ compile p = do
     putStrLn "movq %rax, %rcx"
     putStrLn "movq %rbx, %rax"
     putStrLn "movq %rcx, %rbx"
-    putStrLn "jmp mainloop"
+    putStrLn "test %r14, %r14"
+    putStrLn "je mainloop"
+    putStrLn "decq %r15"
+    putStrLn "jne mainloop"
+    putStrLn "movq $0, %rdi"
+    putStrLn "call exit"
 
     putStrLn ".data"
     putStrLn "message:.string \"%llx\\n\""
