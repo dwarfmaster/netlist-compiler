@@ -74,6 +74,8 @@ Here is the list of accepted commands :
    that, the three last arguments are not dependencies of the command. The
    addresses are in *word size* unit.
 
+The RAM and the registers are initialised to 0.
+
 For examples of valid netlists, see the folder `test`.
 
 ## Dependencies
