@@ -273,7 +273,13 @@ writeExp p (Econcat a1 a2) _ = do
     readV a1 "rdi"
     let s = size (p_types p) a1
     putStrLn $ "salq $" ++ show s ++ ", %rcx"
-    putStrLn $ "andq $" ++ show (2^s-1) ++ ", %rdi"
+    if s < 32 then putStrLn $ "andq $" ++ show (2^s - 1) ++ ", %rdi"
+    else if s < 64 then do
+        putStrLn $ "movq $1, %rdx"
+        putStrLn $ "salq $" ++ show s ++ ", %rdx"
+        putStrLn $ "decq %rdx"
+        putStrLn $ "andq %rdx, %rdi"
+    else return ()
     putStrLn "or %rcx, %rdi"
     return Nothing
 
