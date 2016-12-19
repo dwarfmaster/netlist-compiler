@@ -266,7 +266,7 @@ writeExp _ (Emux a1 a2 a3) _ = do
     readV a1 "rdx"
     readV a2 "rdi"
     putStrLn "andq $1, %rcx"
-    putStrLn "cmovqe %rdx, %rdi"
+    putStrLn "cmove %rdx, %rdi"
     return Nothing
 
 -- TODO check overflow
