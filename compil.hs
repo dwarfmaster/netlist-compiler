@@ -283,9 +283,9 @@ writeExp _ (Eram _ w ra we wa dt) lb = do
     return $ Just (w, we, wa, dt)
 
 writeExp p (Econcat a1 a2) _ = do
-    readV a1 "rcx"
-    readV a2 "rdi"
-    let s = size (p_types p) a2
+    readV a2 "rcx"
+    readV a1 "rdi"
+    let s = size (p_types p) a1
     putStrLn $ "salq $" ++ show s ++ ", %rcx"
     if s < 32 then putStrLn $ "andq $" ++ show (2^s - 1) ++ ", %rdi"
     else if s < 64 then do
