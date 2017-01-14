@@ -97,10 +97,10 @@ expre mp tps t =
                a1 <- wp argc
                a2 <- wp argc
                return $ Ebinop b a1 a2)
- <|> (try $ do wp $ string "EMUX"
-               a1 <- wp argc
+ <|> (try $ do wp $ string "MUX"
+               a1 <- wp $ arg_constraint mp tps TBit
                a2 <- wp argc
-               a3 <- wp $ arg_constraint mp tps TBit
+               a3 <- wp argc
                return $ Emux a1 a2 a3)
  <|> (try $ do wp $ string "ROM"
                n1 <- wp number

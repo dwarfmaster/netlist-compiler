@@ -136,11 +136,10 @@ applyWrite lb (ws,we,wa,dt) = do
     putStrLn "test %rcx, %rcx"
     putStrLn $ "je " ++ l
     readV wa "rcx"
-    putStrLn "salq $2, %rcx"
     readV dt "rdx"
     putStrLn $ "movq (%rbp), %rdi"
     putStrLn $ "movq %rdx, (%rdi, %rcx, "
-               ++ show (ws `div` 4) ++ ")"
+               ++ show (ws `div` 8) ++ ")"
     putStrLn $ l ++ ":"
 
 inputV :: Var -> IO ()
@@ -262,8 +261,8 @@ writeExp _ (Ebinop b a1 a2) _ = do
     return Nothing
 
 writeExp _ (Emux a1 a2 a3) _ = do
-    readV a3 "rcx"
-    readV a1 "rdx"
+    readV a1 "rcx"
+    readV a3 "rdx"
     readV a2 "rdi"
     putStrLn "andq $1, %rcx"
     putStrLn "cmove %rdx, %rdi"
